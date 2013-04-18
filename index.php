@@ -1,119 +1,291 @@
 <?php
-/**
-  * wechat php test
-  */
 include_once("config.php");
-include_once('user.class.php');
-include_once('step.class.php');
+include_once("user.php");
+include_once("step.php");
+include_once("score.php");
+
 //define your token
-define("TOKEN", "find");
+define("TOKEN", "findnimeiconfig");
 $wechatObj = new wechatCallbackapiTest();
-//$wechatObj->valid();
 $wechatObj->responseMsg();
 
 class wechatCallbackapiTest
 {
+	
+	public function valid()
+    {
+        $echoStr = $_GET["echostr"];
 
+        //valid signature , option
+        if($this->checkSignature()){
+        	echo $echoStr;
+        	exit;
+        }
+    }
 
     public function responseMsg()
     {
 		//get post data, May be due to the different environments
 		$postStr = $GLOBALS["HTTP_RAW_POST_DATA"];
-          $current_level =0;
 
       	//extract post data
 		if (!empty($postStr)){
-		          	$postObj = simplexml_load_string($postStr, 'SimpleXMLElement', LIBXML_NOCDATA);
-		            $fromUsername = $postObj->FromUserName;
-		            $toUsername = $postObj->ToUserName;
-		            $keyword = trim($postObj->Content);
-		            $msgType = trim($postObj->MsgType);
+                
+              	$postObj = simplexml_load_string($postStr, 'SimpleXMLElement', LIBXML_NOCDATA);
+				$type = trim($postObj->MsgType);
 
-		            $user = new User();
-					$userQuery = $user->fn_userStatus($fromUsername);
-					$userStatus  = mysql_fetch_array($userQuery);
-
-					//²»´æÔÚÊý¾Ý±íÀïÃæµÄÓÃ»§ ÔòÔö¼ÓÓÃ»§½øÊý¾Ý¿â²¢ÉèÖÃÓÃ»§µ±Ç°level = 1
-					if(!$userStatus){
-						$user->fn_insertUserStatus($fromUsername);
-					}else{
-						$current_level = $userStatus['current_level'];
-					}
-					//¸ù¾ÝÓÃ»§ÊäÈëÉú³ÉÄÚÈÝ
-					switch ($msgType){
-						    case "text":
-						        $resultStr = $this->receiveText($postObj,$current_level);
-						        break;
-						    case "event":
-						        $resultStr = $this->receiveEvent($postObj);
-						        break;
-						    default:
-						        $resultStr = "unknow msg type: ".$keyword;
-						        break;
-						}
+				switch ($type)
+				{
+					case "text":
+						$this->receiveText($postObj);
+						break;
+					case "event":
+						$this->receiveEvent($postObj);
+						break;
+					default:
+						break;
+				}
         }else {
-        	//·¢À´µÄÊý¾ÝÎª¿Õ
         	echo "";
         	exit;
         }
     }
-
-    private function receiveEvent($object){
-		    $contentStr = "";
-		    switch ($object->Event)
-		    {
-		        case "subscribe":
-		            $contentStr = "ÄúºÃ£¬»¶Ó­¹Ø×¢ÕÒÄãÃÃ¡£Îª¸ïÃü±£»¤ÊÓÁ¦£¬ÑÛ±£½¡²ÙÏÖÔÚ¿ªÊ¼¡£ÔÚÕâÀïÄãÐèÒª¼¯ÖÐ×¢ÒâÁ¦£¬ÔÚ¹æ¶¨Ê±¼äÄÚÕÒµ½ÌØ±ðµÄºº×Ö¡£" .
-		            		"Äã¾Í¿ÉÒÔ»ñµÃ½ð±Ò¹ý¹Ø¡£ÌôÕ½ÊÓÁ¦¼«ÏÞ£¬¾ÍÀ´ÕÒÄãÃÃ¡£ÐÂ¸Ð¾õ£¬ÐÂÌåÑé£¡\n1¡¾¿ªÊ¼ÓÎÏ·¡¿\n¡¾¸öÈË¼ÇÂ¼»Ø¹Ë¡¿\n¡¾×Ü·ÖÅÅÐÐ°ñ¡¿";
-		            break;
-		    }
-		    $resultStr = $this->transmitText($object, $contentStr);
-		    return $resultStr;
-    }
-
-
-    private function receiveText($object,$current_level) {
-        $funcFlag = 0;
-        $keyword = trim($object->Content);
-        $resultStr = "";
-        if ($keyword == "Hello2BizUser"){
-            $contentStr = "»¶Ó­¹Ø×¢ÕÒÄãÃÃ£¬ÐÂ¸Ð¾õ£¬ÐÂÌåÑé¡£";
-            $resultStr = $this->transmitText($object, $contentStr, $funcFlag);
-            return $resultStr;
-        }elseif($keyword == "1") {
-        	//¿ªÊ¼ÓÎÏ·
-			$step = new Step();
-			$step_id = $current_level +1;
-			$array = $step->makegame($step_id);
-
-			 $contentStr = "»¶Ó­¹Ø×¢ÕÒÄãÃÃ£¬ÐÂ¸Ð¾õ£¬ÐÂÌåÑé¡£";
-            $resultStr = $this->transmitText($object, $contentStr, $funcFlag);
-            return $resultStr;
-
-        }elseif($keyword == "2") {
-            //¸öÈË¼ÇÂ¼»Ø¹Ë
-        }elseif($keyword == "3") {
-            //×Ü·ÖÅÅÐÐ°ñ
-        }else{
-            $contentStr = "·¢ËÍ´íÎóÐÅÏ¢£¬ÇëÖØÐÂÑ¡Ôñ";
-            $resultStr = $this->transmitText($object, $contentStr, $funcFlag);
-             return $resultStr;
-        }
-    }
-
-
-    private function transmitText($object, $content, $flag = 0){
-        $textTpl = "<xml>
+		
+	private function checkSignature()
+	{
+        $signature = $_GET["signature"];
+        $timestamp = $_GET["timestamp"];
+        $nonce = $_GET["nonce"];	
+        		
+		$token = TOKEN;
+		$tmpArr = array($token, $timestamp, $nonce);
+		sort($tmpArr);
+		$tmpStr = implode( $tmpArr );
+		$tmpStr = sha1( $tmpStr );
+		
+		if( $tmpStr == $signature ){
+			return true;
+		}else{
+			return false;
+		}
+	}
+	private function makeText($fromUsername, $toUsername, $contentStr)
+	{
+		$time = time();
+		$textTpl = "<xml>
 					<ToUserName><![CDATA[%s]]></ToUserName>
 					<FromUserName><![CDATA[%s]]></FromUserName>
 					<CreateTime>%s</CreateTime>
 					<MsgType><![CDATA[text]]></MsgType>
 					<Content><![CDATA[%s]]></Content>
-					<FuncFlag>%d</FuncFlag>
-					</xml>";
-        $resultStr = sprintf($textTpl, $object->FromUserName, $object->ToUserName, time(), $content, $flag);
-        return $resultStr;
+					<FuncFlag>0<FuncFlag>
+					</xml>"; 
+		if (empty($contentStr)) $contentStr = "æŠ±æ­‰ï¼Œå½“å‰ç½‘ç»œç¹å¿™ï¼Œè¯·ç¨åŽå†è¯•.";
+		return sprintf($textTpl, $fromUsername, $toUsername, $time, $contentStr);
+	}
+   	private function checkUser($fromUsername){
+		$userQuery  = queryUser($fromUsername);
+		$userStatus  = mysql_fetch_array($userQuery);
+		if(!$userStatus){
+			 insertUser($fromUsername);
+	     }
+	}
+
+	private function setStatus($fromUsername,$status){
+		   $time = time();
+	       $operate = '{"flag":"'.$status .'","index":"0","time":"'.$time .'"}';
+           updateUserOperate($fromUsername,$operate);
+	}
+
+	private function getStatus($fromUsername){
+		  $operateResult = queryUserOperate($fromUsername);
+          $operateRow = mysql_fetch_array($operateResult);
+          $operateJson =$operateRow['operate'];
+		  $operate = json_decode($operateJson);
+		  return $operate->flag;
+	}
+	private	function getGameStr($fromUsername){
+
+		  $levelResult = queryUserLevel($fromUsername);
+		  $level = mysql_fetch_array($levelResult);
+		  $current_level = $level['current_level'];
+
+		  $wordResult =queryWord($current_level);
+		  $word = mysql_fetch_array($wordResult);
+		  $present_num = $word['present_num'];
+
+		  $stepNameResult = queryStepName($current_level);
+		  $stepRow =  mysql_fetch_array($stepNameResult);
+		  $step_name = $stepRow['step_name'];
+
+		  $gameStr = "ç¬¬".$current_level."å…³ï¼š".$step_name."ã€‚åœ¨ä¸‹åˆ—æ–¹é˜µä¸­æ‰¾åˆ°å…¶ä¸­ä¸€ä¸ª\"".$word['key_word']."\"ã€‚ä¾‹å¦‚è¾“å…¥27è¡¨ç¤ºç¬¬2è¡Œç¬¬7åˆ—\n";
+
+		  $array = array(
+				'0'=> array("0"," 1"," 2"," 3"," 4"," 5"," 6"," 7"," 8"," 9"),
+				 array(1,$word['main_word'],$word['main_word'],$word['main_word'],$word['main_word'],$word['main_word'],
+							  $word['main_word'],$word['main_word'],$word['main_word'],$word['main_word']),
+				 array(2,$word['main_word'],$word['main_word'],$word['main_word'],$word['main_word'],$word['main_word'],
+							  $word['main_word'],$word['main_word'],$word['main_word'],$word['main_word']),
+				 array(3,$word['main_word'],$word['main_word'],$word['main_word'],$word['main_word'],$word['main_word'],
+							 $word['main_word'],$word['main_word'],$word['main_word'],$word['main_word']),
+				 array(4,$word['main_word'],$word['main_word'],$word['main_word'],$word['main_word'],$word['main_word'],
+							 $word['main_word'],$word['main_word'],$word['main_word'],$word['main_word']),
+				 array(5,$word['main_word'],$word['main_word'],$word['main_word'],$word['main_word'],$word['main_word'],
+							 $word['main_word'],$word['main_word'],$word['main_word'],$word['main_word']),
+				array(6,$word['main_word'],$word['main_word'],$word['main_word'],$word['main_word'],$word['main_word'],
+							 $word['main_word'],$word['main_word'],$word['main_word'],$word['main_word']),
+				 array(7,$word['main_word'],$word['main_word'],$word['main_word'],$word['main_word'],$word['main_word'],
+							 $word['main_word'],$word['main_word'],$word['main_word'],$word['main_word']),
+				 array(8,$word['main_word'],$word['main_word'],$word['main_word'],$word['main_word'],$word['main_word'],
+							 $word['main_word'],$word['main_word'],$word['main_word'],$word['main_word']),
+				 array(9,$word['main_word'],$word['main_word'],$word['main_word'],$word['main_word'],$word['main_word'],
+							$word['main_word'],$word['main_word'],$word['main_word'],$word['main_word']),
+				 );
+
+			 for($m=0; $m<$present_num; $m++){
+				   $i = rand(1,9);
+				   $j = rand(1,9);
+				   $a = 0; //ä¸èƒ½ç”¨a because the position of 'a' was the 0th (first) character.
+				   $array[$i][$j] =$word['key_word'];
+				   $game_result .="$i"."$j"."$a";
+			  }
+			   updateGameResult($fromUsername,$game_result);
+
+			 for($i = 0; $i < 10; $i++){
+				   for($j = 0; $j < 10; $j++){
+						 $gameStr .=$array[$i][$j];
+				   }
+				$gameStr .="\n";
+			}
+			return $gameStr;
+	}
+	private	function play($fromUsername,$findme){
+		 $userResult= queryUser($fromUsername);
+		 $user = mysql_fetch_array($userResult);
+		 $gameresultStr = $user['game_result'];
+
+		$pos = strpos($gameresultStr, $findme);
+		if ($pos === false) {
+				$gameStr .="å›žç­”é”™è¯¯ï¼Œè¯·é‡æ–°é€‰æ‹©";
+			    $gameStr .=$this->getGameStr($fromUsername);
+				//é‡æ–°ç”Ÿæˆè¿™ä¸€å…³çš„æ¸¸æˆ
+		} else {
+				$gamelevel= $user['current_level'];
+				$current_level = $gamelevel+1;
+				//åœ¨æ’å…¥å¾—åˆ†è®°å½•
+				$stepResult = queryPlayment($gamelevel);
+				$payRow =  mysql_fetch_array($stepResult);
+				$money = $payRow['playment'];
+
+				insertScore($fromUsername,$gamelevel,$money);
+
+				//æ›´æ–°userç­‰çº§
+			   updateUserLevel($fromUsername,$current_level);
+
+			  $gameStr ="æ­å–œä½ ï¼Œæ‰¾åˆ°å¦¹å­ã€‚çŽ°åœ¨è¿›å…¥";
+			  $gameStr .=$this->getGameStr($fromUsername);
+			}
+		return $gameStr;
+	}
+	private function receiveEvent($postObj)
+	{
+		$fromUsername = $postObj->FromUserName;
+		$toUsername = $postObj->ToUserName;
+		$eventType = $postObj->Event;
+
+        $this->checkUser($fromUsername);
+	
+		$contentStr = "";
+		switch ($eventType)
+		{
+			case "subscribe":
+				$contentStr ="ä¸ºé©å‘½ä¿æŠ¤è§†åŠ›ï¼Œçœ¼ä¿å¥æ“çŽ°åœ¨å¼€å§‹ã€‚åœ¨è¿™é‡Œä½ éœ€è¦é›†ä¸­æ³¨æ„åŠ›ï¼Œåœ¨è§„å®šæ—¶é—´å†…æ‰¾åˆ°ç‰¹åˆ«çš„æ±‰å­—ã€‚ä½ å°±å¯ä»¥èŽ·å¾—é‡‘å¸è¿‡å…³ã€‚æŒ‘æˆ˜è§†åŠ›æžé™ï¼Œå°±æ¥æ‰¾ä½ å¦¹ã€‚å›žå¤æ•°å­—ç«‹å³å‚é€‰ï¼\n\n1ã€å¼€å§‹æ¸¸æˆã€‘\n\n2ã€ä¸ªäººè®°å½•å›žé¡¾ã€‘\n\n3ã€æ€»åˆ†æŽ’è¡Œæ¦œã€‘";
+
+				break;
+		}
+		$resultStr = $this->makeText($fromUsername, $toUsername,   $contentStr);
+		echo $resultStr;
+	}
+    private function receiveText($postObj)
+    {
+		$fromUsername = $postObj->FromUserName;
+		$toUsername = $postObj->ToUserName;
+		$keyword = trim($postObj->Content);
+       if(!empty( $keyword ))
+                {
+		            $mainContentStr = "ä¸ºé©å‘½ä¿æŠ¤è§†åŠ›ï¼Œçœ¼ä¿å¥æ“çŽ°åœ¨å¼€å§‹ã€‚åœ¨è¿™é‡Œä½ éœ€è¦é›†ä¸­æ³¨æ„åŠ›ï¼Œåœ¨è§„å®šæ—¶é—´å†…æ‰¾åˆ°ç‰¹åˆ«çš„æ±‰å­—ã€‚ä½ å°±å¯ä»¥èŽ·å¾—é‡‘å¸è¿‡å…³ã€‚æŒ‘æˆ˜è§†åŠ›æžé™ï¼Œå°±æ¥æ‰¾ä½ å¦¹ã€‚å›žå¤æ•°å­—ç«‹å³å‚é€‰ï¼\n\n1ã€å¼€å§‹æ¸¸æˆã€‘\n\n2ã€ä¸ªäººè®°å½•å›žé¡¾ã€‘\n\n3ã€æ€»åˆ†æŽ’è¡Œæ¦œã€‘";
+
+				
+				  
+		            $status = $this->getStatus($fromUsername);
+
+              		if($status == "main"){	
+							if($keyword == "1"){
+								//å¼€å§‹æ¸¸æˆ
+								$this->setStatus($fromUsername,"game");
+								$contentStr =$this->getGameStr($fromUsername);
+								$resultStr = $this->makeText($fromUsername, $toUsername,   $contentStr); 
+							}elseif($keyword == "2"){
+								//ä¸ªäººè®°å½•å›žé¡¾					
+								$this->setStatus($fromUsername,"record");
+								$contentStr =$this->getMyHistoryScore($fromUsername);
+								$resultStr = $this->makeText($fromUsername, $toUsername,   $contentStr); 
+							}elseif($keyword == "3"){
+								//æ€»åˆ†æŽ’è¡Œ					
+								$this->setStatus($fromUsername,"score");
+								$contentStr = "æ€»åˆ†æŽ’è¡Œæ¦œï¼Œè¿”å›žä¸»ç›®å½•è¯·è¾“å…¥#";
+								$resultStr = $this->makeText($fromUsername, $toUsername,   $contentStr); 
+							}else{										
+								$contentStr = $mainContentStr;
+								$resultStr = $this->makeText($fromUsername, $toUsername,   $contentStr); 
+							}					
+				    }elseif($status == "game"){					
+							if($keyword == "#"){
+								//è¿”å›žä¸»ç›®å½•										
+								$this->setStatus($fromUsername,"main");
+								$contentStr = $mainContentStr;
+								$resultStr = $this->makeText($fromUsername, $toUsername,   $contentStr); 
+							}else{
+								//éªŒè¯è¾“å…¥çš„æ•°å­—						
+							
+								$contentStr = $this->play($fromUsername,$keyword);
+								$resultStr = $this->makeText($fromUsername, $toUsername,   $contentStr); 
+							}					
+				    }elseif($status == "record"){					
+							if($keyword == "#"){
+								//è¿”å›žä¸»ç›®å½•
+												
+								$this->setStatus($fromUsername,"main");	
+								$contentStr = $mainContentStr;
+								$resultStr = $this->makeText($fromUsername, $toUsername,   $contentStr); 
+							}					
+				    }elseif($status == "score"){					
+							if($keyword == "#"){
+								//è¿”å›žä¸»ç›®å½•
+												
+								$this->setStatus($fromUsername,"main");
+								$contentStr = $mainContentStr;
+								$resultStr = $this->makeText($fromUsername, $toUsername,   $contentStr); 
+							}					
+				    }
+                	echo $resultStr;
+                }else{
+                	echo "Input something...";
+                }
     }
+	private function getMyHistoryScore($fromUsername){
+      $myscoreResult= getMyScore($fromUsername);
+      $score = mysql_fetch_array($myscoreResult);
+      $scoreStr = $score['level'];
+	  $moneyStr = $score['money'];
+	  $num = mysqli_stmt_num_rows($myscoreResult);
+      $tpl = "ç¬¬%Så…³å¾—åˆ†%s\n";
+	  for($i=0; $i<$num;$i++){
+		 $result .= sprintf(tpl,$scoreStr, $moneyStr);
+	  }
+	    $result .= "è¿”å›žä¸»ç›®å½•è¯·è¾“å…¥\"#\"";
+	  echo $result;
+	}
 
 
 }

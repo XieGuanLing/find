@@ -1,5 +1,5 @@
 
-SET SQL_MODE="NO_AUTO_VALUE_ON_ZERO";
+
 
 -- 
 -- 数据库: `findnimei`
@@ -13,7 +13,7 @@ SET SQL_MODE="NO_AUTO_VALUE_ON_ZERO";
 
 CREATE TABLE `historyscore` (
   `historyscore_id` int(10) unsigned NOT NULL auto_increment,
-  `user_id` int(10) unsigned NOT NULL,
+  `open_id` varchar(100) NOT NULL,
   `level` int(10) unsigned NOT NULL,
   `use_time` int(11) default NULL,
   `money` int(11) default NULL,
@@ -23,7 +23,18 @@ CREATE TABLE `historyscore` (
 -- 
 -- 导出表中的数据 `historyscore`
 -- 
+insert into historyscore(open_id,level,money) values('123',1,10);
+insert into historyscore(open_id,level,money) values('123',2,20);
+insert into historyscore(open_id,level,money) values('123',3,30);
 
+insert into historyscore(open_id,level,money) values('153',1,10);
+insert into historyscore(open_id,level,money) values('153',2,20);
+
+insert into historyscore(open_id,level,money) values('1234',1,10);
+
+insert into historyscore(open_id,level,money) values('12344',1,10);
+insert into historyscore(open_id,level,money) values('12343',1,40);
+insert into historyscore(open_id,level,money) values('12341',1,20);
 
 -- --------------------------------------------------------
 
@@ -64,9 +75,10 @@ INSERT INTO `step` VALUES (8, '一笑倾城', '士', '土', 4, 30, 80, '火眼�
 
 CREATE TABLE `user` (
   `user_id` int(10) unsigned NOT NULL auto_increment,
-  `open_id` varchar(40) default NULL,
-  `current_level` int(10) unsigned NOT NULL,
-  `moneynum` int(11) default NULL,
+  `open_id` varchar(100) NOT NULL,
+  `current_level` int(10) unsigned default 1,
+  `operate` varchar(100) default '{"flag":"main","index":"0","time":"operatetime"}',
+  `game_result` varchar(20) default NULL,
   PRIMARY KEY  (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;
 
